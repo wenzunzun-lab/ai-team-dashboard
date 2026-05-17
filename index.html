@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 团队协作面板</title>
+<style>
+  :root {
+    --bg: #0f0f1a;
+    --card-bg: #1a1a2e;
+    --border: #2a2a4a;
+    --text: #e0e0f0;
+    --text-dim: #8888aa;
+    --accent: #6c5ce7;
+    --accent-glow: #6c5ce744;
+    --success: #00b894;
+    --danger: #e17055;
+    --warning: #fdcb6e;
+    --leader-color: #fdcb6e;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 20px;
+  }
+  .header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 24px; flex-wrap: wrap; gap: 12px;
+  }
+  .header h1 {
+    font-size: 24px; background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  .btn {
+    padding: 8px 18px; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--card-bg); color: var(--text); cursor: pointer;
+    font-size: 13px; transition: all 0.2s; display: flex; align-items: center; gap: 6px;
+  }
+  .btn:hover { border-color: var(--accent); background: #2a2a4a; }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #7c6cf7; box-shadow: 0 0 20px var(--accent-glow); }
+  .btn-danger { border-color: var(--danger); color: var(--danger); }
+  .btn-danger:hover { background: var(--danger); color: #fff; }
+  .btn-success { border-color: var(--success); color: var(--success); }
+  .btn-success:hover { background: var(--success); color: #fff; }
+  .btn-warning { border-color: var(--warning); color: var(--warning); }
+  .btn-warning:hover { background: var(--warning); color: #1a1a2e; }
+
+  /* 任务输入区 */
+  .task-input-area {
+    background: var(--card-bg); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px 20px; margin-bottom: 24px;
+  }
+  .task-input-area textarea {
+    width: 100%; min-height: 60px; background: #12122a;
+    border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); padding: 12px; font-size: 14px;
+    resize: vertical; outline: none; margin-bottom: 12px;
+  }
+  .task-input-area textarea:focus { border-color: var(--accent); }
+  .task-controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+  /* AI员工网格 */
+  .agents-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px; margin-bottom: 24px;
+  }
+  .agent-card {
+    background: var(--card-bg); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px; position: relative;
+    transition: all 0.3s;
+  }
+  .agent-card.leader {
+    border-color: var(--leader-color); box-shadow: 0 0 20px #fdcb6e22;
+  }
+  .agent-card.fired {
+    opacity: 0.4; filter: grayscale(1);
+  }
+  .agent-card.working {
+    border-color: var(--accent); box-shadow: 0 0 15px var(--accent-glow);
+  }
+  .agent-card.done {
+    border-color: var(--success);
+  }
+  .agent-card.error {
+    border-color: var(--danger);
+  }
+
+  .agent-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-bottom: 10px;
+  }
+  .agent-info { display: flex; align-items: center; gap: 10px; }
+  .agent-avatar {
+    width: 40px; height: 40px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; flex-shrink: 0;
+  }
+  .agent-name {
+    font-size: 15px; font-weight: 600;
+  }
+  .agent-role {
+    font-size: 11px; color: var(--text-dim); margin-top: 2px;
+  }
+  .leader-badge {
+    background: var(--leader-color); color: #1a1a2e;
+    font-size: 10px; padding: 2px 8px; border-radius: 4px;
+    font-weight: 600; margin-left: 6px;
+  }
+  .fired-badge {
+    background: var(--danger); color: #fff;
+    font-size: 10px; padding: 2px 8px; border-radius: 4px;
+    font-weight: 600;
+  }
+  .agent-actions {
+    display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px;
+  }
+  .agent-actions .btn { padding: 4px 10px; font-size: 12px; }
+
+  /* 状态信息 */
+  .agent-status {
+    font-size: 12px; padding: 6px 10px;
+    border-radius: 6px; margin: 8px 0;
+    background: #12122a;
+  }
+  .agent-status.idle { color: var(--text-dim); }
+  .agent-status.working { color: var(--accent); }
+  .agent-status.done { color: var(--success); }
+  .agent-status.error { color: var(--danger); }
+
+  /* 日志 */
+  .agent-log {
+    max-height: 200px; overflow-y: auto; font-size: 12px;
+    background: #0a0a15; border-radius: 6px; padding: 8px;
+    margin-top: 8px; font-family: 'Courier New', monospace;
+    line-height: 1.6;
+  }
+  .agent-log::-webkit-scrollbar { width: 4px; }
+  .agent-log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .log-line { color: var(--text-dim); }
+  .log-line.info { color: #74b9ff; }
+  .log-line.success { color: var(--success); }
+  .log-line.error { color: var(--danger); }
+  .log-line.warn { color: var(--warning); }
+  .log-line.thinking { color: #a29bfe; font-style: italic; }
+
+  /* 进度面板 */
+  .progress-panel {
+    background: var(--card-bg); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px 20px;
+  }
+  .progress-bar {
+    height: 6px; background: #12122a; border-radius: 3px;
+    overflow: hidden; margin-top: 8px;
+  }
+  .progress-fill {
+    height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), var(--success));
+    border-radius: 3px; transition: width 0.5s;
+  }
+  .progress-stats {
+    display: flex; gap: 20px; font-size: 13px; color: var(--text-dim);
+    margin-top: 10px;
+  }
+
+  /* 添加AI弹窗 */
+  .modal-overlay {
+    display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+    z-index: 1000; align-items: center; justify-content: center;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal {
+    background: var(--card-bg); border: 1px solid var(--border);
+    border-radius: 16px; padding: 24px; width: 90%; max-width: 420px;
+  }
+  .modal h2 { margin-bottom: 16px; font-size: 18px; }
+  .modal .form-group { margin-bottom: 14px; }
+  .modal label { display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 4px; }
+  .modal input, .modal select {
+    width: 100%; padding: 10px 12px; background: #12122a;
+    border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); font-size: 13px; outline: none;
+  }
+  .modal input:focus, .modal select:focus { border-color: var(--accent); }
+  .modal .btn-group { display: flex; gap: 10px; margin-top: 18px; justify-content: flex-end; }
+
+  /* 空状态 */
+  .empty-state {
+    text-align: center; padding: 60px 20px; color: var(--text-dim);
+  }
+  .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-state p { font-size: 14px; }
+
+  /* toast */
+  .toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: var(--card-bg); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 20px;
+    font-size: 13px; z-index: 2000;
+    animation: slideIn 0.3s ease;
+  }
+  @keyframes slideIn {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  @media (max-width: 640px) {
+    .agents-grid { grid-template-columns: 1fr; }
+    .header h1 { font-size: 18px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>🤖 AI 团队协作面板</h1>
+    <div style="font-size: 12px; color: var(--text-dim); margin-top: 4px;">
+      像老板一样管理你的AI员工
+    </div>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-primary" onclick="showAddModal()">➕ 聘用新AI</button>
+    <button class="btn btn-warning" onclick="setLeader()">👑 设为领导</button>
+    <button class="btn" onclick="runAll()">▶️ 全体执行</button>
+    <button class="btn btn-danger" onclick="clearAll()">🗑️ 全部解雇</button>
+  </div>
+</div>
+
+<!-- 任务输入 -->
+<div class="task-input-area">
+  <textarea id="taskInput" placeholder="输入你的需求，比如：帮我设计一个物理教学的AI工具，需要有可视化交互功能..."></textarea>
+  <div class="task-controls">
+    <button class="btn btn-primary" onclick="runAll()">🚀 开始工作</button>
+    <label style="font-size: 12px; color: var(--text-dim); display: flex; align-items: center; gap: 6px;">
+      <input type="checkbox" id="autoLeader" checked>
+      自动让领导拆任务
+    </label>
+  </div>
+</div>
+
+<!-- AI员工网格 -->
+<div id="agentsContainer">
+  <div class="empty-state">
+    <div class="icon">👥</div>
+    <p>还没有AI员工，点击「聘用新AI」来组建你的团队吧！</p>
+  </div>
+</div>
+
+<!-- 进度面板 -->
+<div class="progress-panel">
+  <div style="display: flex; justify-content: space-between;">
+    <span style="font-size: 13px;">📊 团队进度</span>
+    <span id="progressText" style="font-size: 13px; color: var(--text-dim);">0/0</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+  <div class="progress-stats">
+    <span>👥 员工: <span id="statTotal">0</span></span>
+    <span>🟢 在岗: <span id="statActive">0</span></span>
+    <span>⏳ 工作中: <span id="statWorking">0</span></span>
+    <span>✅ 已完成: <span id="statDone">0</span></span>
+  </div>
+</div>
+
+<!-- 添加AI弹窗 -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal">
+    <h2>➕ 聘用新AI员工</h2>
+    <div class="form-group">
+      <label>角色名称</label>
+      <input type="text" id="newName" placeholder="例如: 张经理" value="">
+    </div>
+    <div class="form-group">
+      <label>角色职责</label>
+      <input type="text" id="newRole" placeholder="例如: 项目经理 / 美工设计 / 前端开发" value="">
+    </div>
+    <div class="form-group">
+      <label>使用的大模型 (API)</label>
+      <select id="newModel">
+        <option value="deepseek">DeepSeek (deepseek-chat)</option>
+        <option value="qwen">通义千问 (qwen-vl-max)</option>
+        <option value="openai">OpenAI (GPT-4o)</option>
+        <option value="claude">Claude (claude-sonnet-4)</option>
+        <option value="gemini">Gemini (gemini-2.5-pro)</option>
+        <option value="local">本地测试 (模拟响应)</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>头像表情</label>
+      <select id="newAvatar">
+        <option value="🧑‍💼">🧑‍💼 经理</option>
+        <option value="🎨">🎨 设计师</option>
+        <option value="👨‍💻">👨‍💻 程序员</option>
+        <option value="📝">📝 文案</option>
+        <option value="🔍">🔍 质检</option>
+        <option value="🧪">🧪 研究员</option>
+        <option value="📊">📊 分析师</option>
+        <option value="💰">💰 财务</option>
+        <option value="🛠️">🛠️ 工程师</option>
+        <option value="🤖">🤖 通用</option>
+      </select>
+    </div>
+    <div class="btn-group">
+      <button class="btn" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="addAgent()">✅ 聘用</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==================== 数据 ====================
+let agents = [];
+let leaderId = null;
+let taskHistory = [];
+let isRunning = false;
+
+// API配置 - 通过后端代理，API Key在服务器端
+const API_BASE = 'http://124.220.46.21'; // GitHub Pages时指向服务器后端
+
+// ==================== 核心逻辑 ====================
+function addAgent() {
+  const name = document.getElementById('newName').value.trim();
+  const role = document.getElementById('newRole').value.trim();
+  const model = document.getElementById('newModel').value;
+  const avatar = document.getElementById('newAvatar').value;
+
+  if (!name) { alert('请输入角色名称'); return; }
+  if (!role) { alert('请输入角色职责'); return; }
+
+  const agent = {
+    id: Date.now() + Math.random(),
+    name,
+    role,
+    model,
+    avatar,
+    isLeader: false,
+    isFired: false,
+    status: 'idle',  // idle, working, done, error
+    log: [],
+    output: ''
+  };
+
+  agents.push(agent);
+  closeModal();
+  render();
+  toast(`✅ 已聘用 ${name}（${role}）`);
+}
+
+function fireAgent(id) {
+  const agent = agents.find(a => a.id === id);
+  if (!agent) return;
+  agent.isFired = !agent.isFired;
+  if (agent.isFired && agent.isLeader) {
+    agent.isLeader = false;
+    leaderId = null;
+  }
+  render();
+  toast(agent.isFired ? `❌ 已解雇 ${agent.name}` : `🔄 已重新聘用 ${agent.name}`);
+}
+
+function setLeader() {
+  const active = agents.filter(a => !a.isFired);
+  if (active.length === 0) { toast('⚠️ 没有在岗员工'); return; }
+
+  // 弹出选择
+  const names = active.map((a, i) => `${i+1}. ${a.avatar} ${a.name}（${a.role}）`).join('\n');
+  const choice = prompt(`选择谁当领导？\n${names}\n\n输入编号：`);
+  const idx = parseInt(choice) - 1;
+  if (isNaN(idx) || idx < 0 || idx >= active.length) { toast('❌ 无效选择'); return; }
+
+  // 取消旧领导
+  agents.forEach(a => { a.isLeader = false; });
+  active[idx].isLeader = true;
+  leaderId = active[idx].id;
+  render();
+  toast(`👑 已任命 ${active[idx].name} 为团队领导`);
+}
+
+async function runAll() {
+  if (isRunning) { toast('⏳ 团队正在工作中...'); return; }
+
+  const active = agents.filter(a => !a.isFired);
+  if (active.length === 0) { toast('⚠️ 没有在岗员工，先聘几个吧！'); return; }
+
+  const task = document.getElementById('taskInput').value.trim();
+  if (!task) { toast('⚠️ 请先输入任务需求'); return; }
+
+  isRunning = true;
+  updateStats();
+
+  // 重置所有状态
+  agents.forEach(a => {
+    a.status = 'idle';
+    a.output = '';
+    a.log = [];
+  });
+
+  // 如果有领导，让领导先拆任务
+  const leader = agents.find(a => a.id === leaderId);
+  const autoLeader = document.getElementById('autoLeader').checked;
+
+  if (leader && autoLeader) {
+    leader.status = 'working';
+    leader.log.push({ type: 'thinking', text: '🤔 正在分析任务...' });
+    render();
+
+    // 模拟领导思考
+    await sleep(1000);
+    leader.log.push({ type: 'info', text: `📋 收到任务：「${task.substring(0, 50)}${task.length > 50 ? '...' : ''}」` });
+    leader.log.push({ type: 'info', text: '🔍 正在拆解任务、分配工作...' });
+    render();
+
+    // 调用领导的大模型
+    const leaderResult = await callLLM(leader, `你是一个项目领导。你的团队有${active.length}名成员。
+每个成员的角色如下：
+${active.map(a => a.isLeader ? '' : `- ${a.name}：${a.role}`).join('\n')}
+
+项目需求：${task}
+
+请做以下事情：
+1. 分析这个项目能不能完成
+2. 把项目拆解成几个子任务
+3. 分配给合适的团队成员
+
+回复格式：
+## 项目可行性分析
+[你的分析]
+
+## 任务拆解与分配
+- 任务1：[任务描述] → 分配给：[员工姓名]
+- 任务2：[任务描述] → 分配给：[员工姓名]
+...`);
+
+    leader.output = leaderResult;
+    leader.log.push({ type: 'success', text: '✅ 任务拆解完成' });
+    leader.status = 'done';
+    render();
+  }
+
+  // 所有非领导员工开始工作
+  const workers = agents.filter(a => !a.isFired && a.id !== leaderId);
+  for (const agent of workers) {
+    agent.status = 'working';
+    agent.log.push({ type: 'thinking', text: '🤔 等待领导分配任务...' });
+    render();
+    await sleep(800);
+
+    // 如果有领导输出，告诉每个员工要做什么
+    const leaderOutput = leader ? leader.output : '';
+    agent.log = [];
+    agent.log.push({ type: 'info', text: '📩 收到任务分配' });
+    render();
+
+    const result = await callLLM(agent, `你是${agent.name}，角色是${agent.role}。
+
+项目需求：${task}
+
+${leaderOutput ? `领导的分析和任务分配：
+${leaderOutput}
+
+请根据领导分配给你的任务，完成你的工作。输出你的工作成果。` : `
+请根据你的角色，完成这个项目你负责的部分。输出你的工作成果。`}`);
+
+    agent.output = result;
+    agent.log.push({ type: 'success', text: '✅ 工作完成' });
+    agent.status = 'done';
+    render();
+  }
+
+  // 如果有领导，让领导做最终总结
+  if (leader && autoLeader) {
+    leader.status = 'working';
+    leader.log.push({ type: 'thinking', text: '📊 正在汇总团队成果...' });
+    render();
+    await sleep(1000);
+
+    const allOutputs = workers.map(a =>
+      `=== ${a.name}（${a.role}）的工作成果 ===\n${a.output}`
+    ).join('\n\n');
+
+    const summary = await callLLM(leader, `你是项目领导。请汇总团队所有成员的工作成果，给出最终的项目总结报告。
+
+## 团队成员成果
+${allOutputs}
+
+请输出：
+1. 项目完成情况评估
+2. 各成员工作评价
+3. 最终建议`);
+
+    leader.output = leader.output + '\n\n---\n\n## 📊 最终总结\n' + summary;
+    leader.log.push({ type: 'success', text: '✅ 最终总结完成' });
+    leader.status = 'done';
+    render();
+  }
+
+  isRunning = false;
+  updateStats();
+  toast('🎉 所有AI员工已完工！');
+}
+
+// ==================== LLM调用 (通过后端代理) ====================
+async function callLLM(agent, prompt) {
+  agent.log.push({ type: 'info', text: `🔗 正在调用 ${agent.model} 大模型...` });
+  render();
+
+  try {
+    const baseUrl = API_BASE || '';
+    const res = await fetch(`${baseUrl}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: agent.model,
+        messages: [
+          { role: 'system', content: `你是${agent.name}，角色是${agent.role}。请用专业的态度完成工作。回复用中文。` },
+          { role: 'user', content: prompt }
+        ]
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+    agent.log.push({ type: 'success', text: '✅ 模型响应成功' });
+    return data.content;
+
+  } catch (err) {
+    agent.log.push({ type: 'error', text: `❌ 调用失败：${err.message}` });
+    agent.log.push({ type: 'info', text: '💡 降级使用本地模拟...' });
+    render();
+    await sleep(1500);
+    return `[${agent.name} 模拟输出 - 由于API调用失败]\n\n作为${agent.role}，分析如下...\n\n错误信息：${err.message}`;
+  }
+}
+
+// ==================== 渲染 ====================
+function render() {
+  const container = document.getElementById('agentsContainer');
+
+  if (agents.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="icon">👥</div><p>还没有AI员工，点击「聘用新AI」来组建你的团队吧！</p></div>`;
+    updateStats();
+    return;
+  }
+
+  container.innerHTML = `<div class="agents-grid">${
+    agents.map(a => {
+      const isLeader = a.isLeader;
+      const isFired = a.isFired;
+
+      let statusIcon = '🟡';
+      let statusText = '空闲中';
+      if (a.status === 'working') { statusIcon = '⏳'; statusText = '工作中...'; }
+      else if (a.status === 'done') { statusIcon = '✅'; statusText = '已完成'; }
+      else if (a.status === 'error') { statusIcon = '❌'; statusText = '出错了'; }
+      else if (isFired) { statusIcon = '🔴'; statusText = '已解雇'; }
+
+      const logHtml = a.log.length > 0
+        ? `<div class="agent-log">${a.log.map(l =>
+            `<div class="log-line ${l.type}">${l.text}</div>`
+          ).join('')}</div>`
+        : '';
+
+      const outputPreview = a.output
+        ? `<div class="agent-log" style="max-height:150px;">${a.output.substring(0, 300)}${a.output.length > 300 ? '...' : ''}</div>`
+        : '';
+
+      return `<div class="agent-card ${isLeader ? 'leader' : ''} ${isFired ? 'fired' : ''} ${a.status === 'working' ? 'working' : ''} ${a.status === 'done' ? 'done' : ''} ${a.status === 'error' ? 'error' : ''}">
+        <div class="agent-header">
+          <div class="agent-info">
+            <div class="agent-avatar" style="background: ${isLeader ? '#fdcb6e33' : '#6c5ce733'}">${a.avatar}</div>
+            <div>
+              <div class="agent-name">
+                ${a.name}
+                ${isLeader ? '<span class="leader-badge">👑 领导</span>' : ''}
+                ${isFired ? '<span class="fired-badge">解雇</span>' : ''}
+              </div>
+              <div class="agent-role">${a.role} · ${a.model}</div>
+            </div>
+          </div>
+          <div style="font-size: 12px; display: flex; align-items: center; gap: 4px;">
+            <span>${statusIcon}</span>
+            <span style="color: var(--text-dim);">${statusText}</span>
+          </div>
+        </div>
+
+        <div class="agent-status ${a.status}">${statusIcon} ${statusText}</div>
+
+        ${logHtml}
+        ${outputPreview}
+
+        <div class="agent-actions">
+          ${!isFired
+            ? `<button class="btn btn-danger" onclick="fireAgent(${a.id})">❌ 解雇</button>`
+            : `<button class="btn btn-success" onclick="fireAgent(${a.id})">🔄 重新聘用</button>`
+          }
+          ${!isLeader && !isFired
+            ? `<button class="btn btn-warning" onclick="quickSetLeader(${a.id})">👑 设为领导</button>`
+            : ''
+          }
+        </div>
+      </div>`;
+    }).join('')
+  }</div>`;
+
+  updateStats();
+}
+
+function quickSetLeader(id) {
+  agents.forEach(a => { a.isLeader = false; });
+  const agent = agents.find(a => a.id === id);
+  if (agent) {
+    agent.isLeader = true;
+    leaderId = id;
+    render();
+    toast(`👑 已任命 ${agent.name} 为团队领导`);
+  }
+}
+
+function updateStats() {
+  const total = agents.length;
+  const active = agents.filter(a => !a.isFired).length;
+  const working = agents.filter(a => a.status === 'working').length;
+  const done = agents.filter(a => a.status === 'done').length;
+
+  document.getElementById('statTotal').textContent = total;
+  document.getElementById('statActive').textContent = active;
+  document.getElementById('statWorking').textContent = working;
+  document.getElementById('statDone').textContent = done;
+
+  const pct = total > 0 ? Math.round(done / total * 100) : 0;
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressText').textContent = `${done}/${total}`;
+}
+
+function clearAll() {
+  if (agents.length === 0) return;
+  if (!confirm('确定要解雇所有AI员工吗？')) return;
+  agents = [];
+  leaderId = null;
+  render();
+  toast('🗑️ 已解雇所有AI员工');
+}
+
+// ==================== 弹窗 ====================
+function showAddModal() {
+  document.getElementById('addModal').classList.add('active');
+  document.getElementById('newName').value = '';
+  document.getElementById('newRole').value = '';
+}
+
+function closeModal() {
+  document.getElementById('addModal').classList.remove('active');
+}
+
+// 点击遮罩层关闭
+document.getElementById('addModal').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('addModal')) closeModal();
+});
+
+// ==================== 工具 ====================
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function toast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2500);
+}
+
+// 预置示例团队
+function presetTeam() {
+  const presets = [
+    { name: '陈经理', role: '项目经理', model: 'deepseek', avatar: '🧑‍💼' },
+    { name: '小美', role: 'UI/美工设计', model: 'qwen', avatar: '🎨' },
+    { name: '阿正', role: '前端开发', model: 'deepseek', avatar: '👨‍💻' },
+    { name: '阿杰', role: '测试质检', model: 'local', avatar: '🔍' },
+  ];
+
+  presets.forEach(p => {
+    agents.push({
+      id: Date.now() + Math.random(),
+      ...p,
+      isLeader: false,
+      isFired: false,
+      status: 'idle',
+      log: [],
+      output: ''
+    });
+  });
+
+  render();
+  toast('🎯 已加载示例团队');
+}
+
+// 从后端加载可用模型列表
+async function loadModels() {
+  try {
+    const baseUrl = API_BASE || '';
+    const res = await fetch(`${baseUrl}/api/models`);
+    const models = await res.json();
+    const select = document.getElementById('newModel');
+    select.innerHTML = models.map(m =>
+      `<option value="${m.id}" ${!m.available ? 'disabled' : ''}>
+        ${m.avatar} ${m.name} ${!m.available ? '(未配置)' : ''}
+      </option>`
+    ).join('');
+  } catch (e) {
+    // 如果后端没启动，保留默认选项
+  }
+}
+
+// 启动时加载
+loadModels();
+</script>
+</body>
