@@ -1,0 +1,17 @@
+{
+  "name": "ai-team-server",
+  "version": "1.0.0",
+  "description": "AI Team Dashboard - 多智能体协作面板后端代理",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": ["ai", "multi-agent", "team", "dashboard"],
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2"
+  }
+}
